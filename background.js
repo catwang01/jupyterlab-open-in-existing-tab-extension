@@ -1,7 +1,7 @@
 const getPath = (link) => {
   const filePath = ((link, delimiter) => {
     startIndex = link.indexOf(delimiter) + delimiter.length
-    return decodeURI(link.substring(startIndex))
+    return decodeURIComponent(link.substring(startIndex))
   })(link, 'tree/')
   return filePath
 }
