@@ -74,9 +74,10 @@ const isJupyterLabNotebook = async (tab, prefix) => {
 }
 
 const findExistingJupyterLabTab = async (tabs, currentTab) => {
-  return await Promise.all(
-    tabs.filter(async tab => await isJupyterLabTab(tab) && tab.id !== currentTab.id)
-  )
+  var flags = await Promise.all(
+    tabs.map(async tab => await isJupyterLabTab(tab) && tab.id !== currentTab.id)
+  );
+  return tabs.filter((_, i) => flags[i]);
 }
 
 const retrieveUrl = tab => tab.pendingUrl || tab.url || ""
@@ -93,6 +94,7 @@ const openInExistingTab = async ({answer, currentTab}) => {
           return
         }
         console.log(`Detect ${existingJuyterLabTabsCount} existing jupyterlab tabs. Use the first one`)
+        console.log({ existingJuyterLabTabs })
         var tab = existingJuyterLabTabs[0]
         openJupyterLab(tab, retrieveUrl(currentTab), () => 
         {
