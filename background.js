@@ -1,8 +1,9 @@
 const getPath = (link) => {
-  const filePath = ((link, delimiter) => {
-    startIndex = link.indexOf(delimiter) + delimiter.length
-    return decodeURIComponent(link.substring(startIndex))
-  })(link, 'tree/')
+    const delimiter = 'tree/';
+    const url = new URL(link);
+    const pathname = url.pathname;
+    startIndex = pathname.indexOf(delimiter) + delimiter.length
+    const filePath = decodeURIComponent(pathname.substring(startIndex))
   return filePath
 }
 
@@ -68,7 +69,7 @@ const isJupyterLabTab = async (tab, prefix) => {
 const isJupyterLabNotebook = async (tab, prefix) => {
   const url = retrieveUrl(tab)
   prefix = prefix ?? await getPrefix()
-  const expression = new RegExp("^" + prefix + ".*\.ipynb$")
+  const expression = new RegExp("^" + prefix + ".*\.ipynb")
   const matched = url.match(expression)
   return matched !== null
 }
