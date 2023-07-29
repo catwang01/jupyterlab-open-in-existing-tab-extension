@@ -21,6 +21,7 @@ function throttled(fn, delay = 5000) {
 }
 
 const handleTabNavigation = (tabId) => {
+  console.log('handleTabNavigation')
   chrome.tabs.query(
     {},
     async tabs => {
@@ -33,7 +34,6 @@ const handleTabNavigation = (tabId) => {
 
 // throttle is important to avoid redirections
 const handleNewTab = throttled(async (currentTab) => {
-  console.log({ currentTab })
   if (!(await isJupyterLabNotebook(currentTab)))
     return
   chrome.scripting.executeScript({
@@ -144,23 +144,21 @@ const openJupyterLab = (tab, url, callback) => {
   )
 }
 
-// chrome.tabs.onCreated.addListener(
-//   handleNewTab,
-// )
-
 chrome.webNavigation.onBeforeNavigate.addListener(
-  (details, filter) => {
+  async (details, filter) => {
     console.log(`[onBeforeNavigate]: accept args:`)
     console.log({ details, filter })
-    if (isJupyterLabNotebook(details)) {
+    if (await isJupyterLabNotebook(details)) {
       handleTabNavigation(details.tabId)
     }
   }
-)
+);
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log(request)
-  if (request.type == "openInExistingTab") {
-    openInExistingTab(request.options)
+chrome.runtime.onMessage.addListener(
+  async (request, sender, sendResponse) => {
+    console.log(request)
+    if (request.type == "openInExistingTab") {
+      await openInExistingTab(request.options)
+    }
   }
-});
+);
