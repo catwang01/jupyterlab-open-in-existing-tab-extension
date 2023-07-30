@@ -1,9 +1,9 @@
 const getPath = (link) => {
-    const delimiter = 'tree/';
-    const url = new URL(link);
-    const pathname = url.pathname;
-    startIndex = pathname.indexOf(delimiter) + delimiter.length
-    const filePath = decodeURIComponent(pathname.substring(startIndex))
+  const delimiter = 'tree/';
+  const url = new URL(link);
+  const pathname = url.pathname;
+  startIndex = pathname.indexOf(delimiter) + delimiter.length
+  const filePath = decodeURIComponent(pathname.substring(startIndex))
   return filePath
 }
 
@@ -11,18 +11,19 @@ function throttled(fn, delay = 5000) {
   let oldtime = null;
   let newtime = null;
   return function (...args) {
-      newtime = Date.now();
-      if (oldtime === null || newtime - oldtime >= delay) {
-          fn.apply(null, args)
-          oldtime = Date.now();
-          newtime = null;
-      }
+    newtime = Date.now();
+    if (oldtime === null || newtime - oldtime >= delay) {
+      fn.apply(null, args)
+      oldtime = Date.now();
+      newtime = null;
+    }
   }
 }
 
 const handleTabNavigation = (tabId) => {
+  console.log('handleTabNavigation')
   chrome.tabs.query(
-    {}, 
+    {},
     async tabs => {
       const currentTab = tabs.filter(tab => tab.id == tabId)[0]
       console.log({ currentTab })
@@ -33,7 +34,6 @@ const handleTabNavigation = (tabId) => {
 
 // throttle is important to avoid redirections
 const handleNewTab = throttled(async (currentTab) => {
-  console.log({ currentTab })
   if (!(await isJupyterLabNotebook(currentTab)))
     return
   chrome.scripting.executeScript({
@@ -54,7 +54,7 @@ const handleNewTab = throttled(async (currentTab) => {
   })
 })
 
-const getPrefix = async() => {
+const getPrefix = async () => {
   return (await chrome.storage.sync.get()).prefix
 }
 
@@ -63,6 +63,7 @@ const isJupyterLabTab = async (tab, prefix) => {
   prefix = prefix ?? await getPrefix()
   const expression = new RegExp("^" + prefix)
   const matched = url.match(expression)
+  console.log({ url, expression, matched })
   return matched !== null
 }
 
@@ -71,6 +72,7 @@ const isJupyterLabNotebook = async (tab, prefix) => {
   prefix = prefix ?? await getPrefix()
   const expression = new RegExp("^" + prefix + ".*\.ipynb")
   const matched = url.match(expression)
+  console.log({ url, expression, matched })
   return matched !== null
 }
 
@@ -83,26 +85,24 @@ const findExistingJupyterLabTab = async (tabs, currentTab) => {
 
 const retrieveUrl = tab => tab.pendingUrl || tab.url || ""
 
-const openInExistingTab = async ({answer, currentTab}) => {
+const openInExistingTab = async ({ answer, currentTab }) => {
   if (answer) {
     chrome.tabs.query({},
       async tabs => {
         const existingJuyterLabTabs = await findExistingJupyterLabTab(tabs, currentTab)
         const existingJuyterLabTabsCount = existingJuyterLabTabs.length
-        if (!existingJuyterLabTabsCount)
-        {
+        if (!existingJuyterLabTabsCount) {
           console.log('No existing tab hosting jupyter lab.')
           return
         }
         console.log(`Detect ${existingJuyterLabTabsCount} existing jupyterlab tabs. Use the first one`)
         console.log({ existingJuyterLabTabs })
         var tab = existingJuyterLabTabs[0]
-        openJupyterLab(tab, retrieveUrl(currentTab), () => 
-        {
+        openJupyterLab(tab, retrieveUrl(currentTab), () => {
           chrome.tabs.highlight({
-              tabs: tab.index,
-              windowId: tab.windowId
-            },
+            tabs: tab.index,
+            windowId: tab.windowId
+          },
             window => console.log(`window ${window} is highlighted!`)
           )
           // close opening new tab
@@ -139,25 +139,26 @@ const openJupyterLab = (tab, url, callback) => {
         1000
       )
     }
-  }, 
-  callback
+  },
+    callback
   )
 }
 
-// chrome.tabs.onCreated.addListener(
-//   handleNewTab,
-// )
-
 chrome.webNavigation.onBeforeNavigate.addListener(
-  (details) => {
-    console.log(`[onBeforeNavigate]: `, details)
-    handleTabNavigation(details.tabId)
+  async (details, filter) => {
+    console.log(`[onBeforeNavigate]: accept args:`)
+    console.log({ details, filter })
+    if (await isJupyterLabNotebook(details)) {
+      handleTabNavigation(details.tabId)
+    }
   }
-)
+);
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log(request)
-  if (request.type == "openInExistingTab") {
-    openInExistingTab(request.options)
+chrome.runtime.onMessage.addListener(
+  async (request, sender, sendResponse) => {
+    console.log(request)
+    if (request.type == "openInExistingTab") {
+      await openInExistingTab(request.options)
+    }
   }
-});
+);
