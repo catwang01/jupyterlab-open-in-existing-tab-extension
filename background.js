@@ -21,21 +21,20 @@ function throttled(fn, delay = 5000) {
 }
 
 const handleTabNavigation = (tabId) => {
-  console.log('handleTabNavigation')
+  console.log('handleTabNavigation is invoked')
   chrome.tabs.query(
     {},
     async tabs => {
       const currentTab = tabs.filter(tab => tab.id == tabId)[0]
-      console.log({ currentTab })
+      console.log("The current tab is ", currentTab);
       await handleNewTab(currentTab)
     }
   )
 }
 
 // throttle is important to avoid redirections
-const handleNewTab = throttled(async (currentTab) => {
-  if (!(await isJupyterLabNotebook(currentTab)))
-    return
+const handleNewTab = async (currentTab) => {
+  console.log("The current tab is jupyter notebook, invoking function in the current tab: ", currentTab);
   chrome.scripting.executeScript({
     target: {
       tabId: currentTab.id
@@ -52,27 +51,36 @@ const handleNewTab = throttled(async (currentTab) => {
       })
     }
   })
-})
+};
 
-const getPrefix = async () => {
-  return (await chrome.storage.sync.get()).prefix
+const getOptions = async () => {
+  const options = await chrome.storage.sync.get();
+  console.log("The option is ", options);
+  return options;
 }
 
-const isJupyterLabTab = async (tab, prefix) => {
+const getPrefix = async () => {
+  const options = await getOptions();
+  return options.prefix;
+}
+
+const isJupyterLabTab = async (tab, pattern) => {
   const url = retrieveUrl(tab)
-  prefix = prefix ?? await getPrefix()
-  const expression = new RegExp("^" + prefix)
+  const finalPattern = pattern ?? await getPrefix();
+  const expression = new RegExp(finalPattern)
   const matched = url.match(expression)
   console.log({ url, expression, matched })
   return matched !== null
 }
 
-const isJupyterLabNotebook = async (tab, prefix) => {
+const isJupyterLabNotebook = async (tab, pattern) => {
   const url = retrieveUrl(tab)
-  prefix = prefix ?? await getPrefix()
-  const expression = new RegExp("^" + prefix + ".*\.ipynb")
+  if (!url.endsWith(".ipynb"))
+    return false;
+  const finalPattern = pattern ?? await getPrefix();
+  console.log(`The pattern is ${finalPattern}`);
+  const expression = new RegExp(finalPattern)
   const matched = url.match(expression)
-  console.log({ url, expression, matched })
   return matched !== null
 }
 
@@ -144,10 +152,9 @@ const openJupyterLab = (tab, url, callback) => {
   )
 }
 
-chrome.webNavigation.onBeforeNavigate.addListener(
+chrome.webNavigation.onCompleted.addListener(
   async (details, filter) => {
-    console.log(`[onBeforeNavigate]: accept args:`)
-    console.log({ details, filter })
+    console.log("[onCompleted]: accept args: ", { details, filter })
     if (await isJupyterLabNotebook(details)) {
       handleTabNavigation(details.tabId)
     }
@@ -156,8 +163,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(
 
 chrome.runtime.onMessage.addListener(
   async (request, sender, sendResponse) => {
-    console.log(request)
-    if (request.type == "openInExistingTab") {
+    if (request.type === "openInExistingTab") {
       await openInExistingTab(request.options)
     }
   }
