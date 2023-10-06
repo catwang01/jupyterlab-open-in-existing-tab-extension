@@ -152,7 +152,7 @@ const openJupyterLab = (tab, url, callback) => {
   )
 }
 
-chrome.webNavigation.onCompleted.addListener(
+chrome.webNavigation.onCommitted.addListener(
   async (details, filter) => {
     console.log("[onCompleted]: accept args: ", { details, filter })
     if (await isJupyterLabNotebook(details)) {
